@@ -26,3 +26,4 @@ def test_inv_transform() -> None:
         ValueError, match="PCA not fitted when calling inverse_transform..*"
     ):
         PCA(n_components=2).inverse_transform(inputs)
+

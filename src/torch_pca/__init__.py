@@ -7,6 +7,6 @@ the `sklearn`'s PCA as possible (in terms of API and, of course, output).
 
 # Copyright (c) 2024 Valentin Goldité. All Rights Reserved.
 from torch_pca._version import version, version_tuple
-from torch_pca.pca_main import PCA
+from torch_pca.pca_main import PCA, PCAModule
 
-__all__ = ["PCA", "version", "version_tuple"]
+__all__ = ["PCA", "PCAModule", "version", "version_tuple"]

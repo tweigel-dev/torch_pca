@@ -483,3 +483,38 @@ class PCA:
                         device=device, dtype=dtype, non_blocking=non_blocking, **kwargs
                     ),
                 )
+class PCAModule(torch.nn.Module):
+    """PCA as a PyTorch module.
+
+    It is a wrapper around PCA that inherits from torch.nn.Module to be
+    used in torch.nn.Sequential and to be compatible with torch.jit.
+    """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__()
+        self.pca = PCA(*args, **kwargs)
+
+    @property
+    def components_(self) -> Optional[Tensor]:
+        """Principal axes in feature space."""
+        return self.pca.components_
+
+    @property
+    def mean_(self) -> Optional[Tensor]:
+        """Mean of the input data during fit."""
+        return self.pca.mean_
+    def forward(self, inputs: Tensor) -> Tensor:
+        """Apply dimensionality reduction to X."""
+        if self.training:
+            self.pca.fit(inputs)
+        if self.pca.components_ is None:
+            raise ValueError(
+                "PCA not fitted when calling forward. "
+                "Please forward in training mode or"
+                  " call `fit` or `fit_transform` first on self.pca."
+            )
+        return self.pca.transform(inputs)
+
+    def inverse(self, inputs: Tensor) -> Tensor:
+        """Invert transformed data."""
+        return self.pca.inverse_transform(inputs)
