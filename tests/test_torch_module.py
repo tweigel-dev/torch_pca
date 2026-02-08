@@ -1,6 +1,6 @@
 from pathlib import Path
 import torch
-from torch_pca import PCAModule
+from torch_pca import PCA
 
 import pytest
 
@@ -12,7 +12,7 @@ def X() -> torch.Tensor:
 def test_pca_as_torch_module(tmp_path: Path, X: torch.Tensor) -> None:
     # Create a random dataset
     # Initialize PCA with 2 components
-    pca = PCAModule(n_components=5)
+    pca = PCA(n_components=5)
     # Fit and transform the data
     com_before = pca.components_
     X_reduced = pca.forward(X)
@@ -29,7 +29,7 @@ def test_pca_as_torch_module(tmp_path: Path, X: torch.Tensor) -> None:
 def test_pca_eval_failure_on_unfitted_model(X):
     # Create a random dataset
     # Initialize PCA with 2 components
-    pca = PCAModule(n_components=2)
+    pca = PCA(n_components=2)
     pca.eval()  # Set the model to evaluation mode
     with pytest.raises(ValueError) as exc_info:
         pca.forward(X)
@@ -39,11 +39,11 @@ def test_pca_module_inverse_no_reduction(X):
 
 
     # Initialize PCA with 2 components
-    pca = PCAModule()
+    pca = PCA()
     # Fit and transform the data
     X_reduced = pca.forward(X)
     # Inverse transform the reduced data
-    X_approx = pca.pca.inverse_transform(X_reduced)
+    X_approx = pca.inverse_transform(X_reduced)
     # Check that the shape of the approximated data matches the original data
     assert X_approx.shape == X.shape, "The shape of the approximated data should match the original data."
     assert torch.allclose(X_approx, X), "The approximated data should match the original data when n_components=0 (no dimensionality reduction)."
@@ -51,11 +51,11 @@ def test_pca_module_inverse_no_reduction(X):
 def test_pca_module_inverse(X):
 
     # Initialize PCA with 2 components
-    pca = PCAModule(n_components=1)
+    pca = PCA(n_components=1)
     # Fit and transform the data
     X_reduced = pca.forward(X)
     # Inverse transform the reduced data
-    X_approx = pca.inverse(X_reduced)
+    X_approx = pca.inverse_transform(X_reduced)
     # Check that the shape of the approximated data matches the original data
     assert X_approx.shape == X.shape, "The shape of the approximated data should match the original data."
     assert not torch.allclose(X_approx, X), "The approximated data should not match the original data when n_components=2 (dimensionality reduction)."
