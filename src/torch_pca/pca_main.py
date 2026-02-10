@@ -115,7 +115,7 @@ class PCA(torch.nn.Module):
                 "'auto', 'full', 'covariance_eigh', 'randomized'."
             )
 
-    def fit_transform(self, inputs: Tensor, determinist: bool = True) -> Tensor:
+    def fit_transform(self, inputs: Tensor, *, determinist: bool = True) -> Tensor:
         """Fit the PCA model and apply the dimensionality reduction.
 
         Parameters
@@ -140,7 +140,7 @@ class PCA(torch.nn.Module):
         transformed = self.transform(inputs)
         return transformed
 
-    def fit(self, inputs: Tensor, determinist: bool = True) -> "PCA":
+    def fit(self, inputs: Tensor, *, determinist: bool = True) -> "PCA":
         """Fit the PCA model and return it.
 
         Parameters
@@ -411,9 +411,9 @@ class PCA(torch.nn.Module):
         return self.transform(inputs)
 
 
-    def load_state_dict(self, state_dict, strict=True, assign=False):
+    def load_state_dict(self, state_dict, *, strict=True, assign=False):
         """Override load_state_dict to handle component loading.
-        
+
         Parameters
         ----------
         state_dict : dict
@@ -431,16 +431,16 @@ class PCA(torch.nn.Module):
         if 'components_' in state_dict and state_dict['components_'].numel() > 0:
             self.n_components_ = state_dict['components_'].shape[0]
             self.n_features_in_ = state_dict['components_'].shape[1]
-        
+
         if 'mean_' in state_dict and state_dict['mean_'].numel() > 0:
             self.n_samples_ = -1  # Unknown from loaded state
-        
+
         # Resize buffers to match incoming state_dict shapes
-        for name in ['components_', 'explained_variance_', 'explained_variance_ratio_', 
+        for name in ['components_', 'explained_variance_', 'explained_variance_ratio_',
                      'mean_', 'noise_variance_', 'singular_values_']:
             if name in state_dict:
                 # Get the buffer and resize it to match the state_dict shape
                 current_buffer = getattr(self, name)
                 self.register_buffer(name, torch.empty_like(state_dict[name]), persistent=True)
-        
+
         return super().load_state_dict(state_dict, strict=strict, assign=assign)
