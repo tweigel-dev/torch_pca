@@ -4,11 +4,10 @@
 # Inspired from https://github.com/scikit-learn (BSD-3-Clause License)
 # Copyright (c) Scikit-learn developers. All Rights Reserved.
 from math import log
-from typing import Any, Optional, Tuple, Union
+from typing import Optional, Tuple, Union
 
 import torch
 from torch import Tensor
-from torch._prims_common import DeviceLikeType
 
 from torch_pca.ncompo import NComponentsType, find_ncomponents
 from torch_pca.svd import choose_svd_solver, randomized_svd, svd_flip
@@ -83,13 +82,13 @@ class PCA(torch.nn.Module):
     ):
         super().__init__()
         #: Principal axes in feature space.
-        self.components_: Optional[Tensor] = None
+        self.register_buffer("components_", torch.empty(0), persistent=True)
         #: The amount of variance explained by each of the selected components.
-        self.explained_variance_: Optional[Tensor] = None
+        self.register_buffer("explained_variance_", torch.empty(0), persistent=True)
         #: Percentage of variance explained by each of the selected components.
-        self.explained_variance_ratio_: Optional[Tensor] = None
+        self.register_buffer("explained_variance_ratio_", torch.empty(0), persistent=True)
         #: Mean of the input data during fit.
-        self.mean_: Optional[Tensor] = None
+        self.register_buffer("mean_", torch.empty(0), persistent=True)
         #: Number of components to keep.
         self.n_components_: NComponentsType = n_components
         #: Number of features in the input data.
@@ -97,9 +96,9 @@ class PCA(torch.nn.Module):
         #: Number of samples seen during fit.
         self.n_samples_: int = -1
         #: The estimated noise covariance.
-        self.noise_variance_: Optional[Tensor] = None
+        self.register_buffer("noise_variance_", torch.empty(0), persistent=True)
         #: Singular values corresponding to each of the selected components.
-        self.singular_values_: Optional[Tensor] = None
+        self.register_buffer("singular_values_", torch.empty(0), persistent=True)
         #: Whether the data is whitened or not.
         self.whiten: bool = whiten
         #: Solver to use for the PCA computation.
@@ -116,7 +115,7 @@ class PCA(torch.nn.Module):
                 "'auto', 'full', 'covariance_eigh', 'randomized'."
             )
 
-    def fit_transform(self, inputs: Tensor, *, determinist: bool = True) -> Tensor:
+    def fit_transform(self, inputs: Tensor, determinist: bool = True) -> Tensor:
         """Fit the PCA model and apply the dimensionality reduction.
 
         Parameters
@@ -141,7 +140,7 @@ class PCA(torch.nn.Module):
         transformed = self.transform(inputs)
         return transformed
 
-    def fit(self, inputs: Tensor, *, determinist: bool = True) -> "PCA":
+    def fit(self, inputs: Tensor, determinist: bool = True) -> "PCA":
         """Fit the PCA model and return it.
 
         Parameters
@@ -245,7 +244,7 @@ class PCA(torch.nn.Module):
 
     def _check_fitted(self, method_name: str) -> None:
         """Check if the PCA model is fitted."""
-        if self.components_ is None:
+        if self.components_ is None or self.components_.numel() == 0:
             raise ValueError(
                 f"PCA not fitted when calling {method_name}. "
                 "Please call `fit` or `fit_transform` first."
@@ -403,10 +402,45 @@ class PCA(torch.nn.Module):
         """Apply dimensionality reduction to X."""
         if self.training:
             self.fit(inputs)
-        if self.components_ is None:
+        if self.components_ is None or self.components_.numel() == 0:
             raise ValueError(
                 "PCA not fitted when calling forward. "
                 "Please forward in training mode or"
                   " call `fit` or `fit_transform` first on self.pca."
             )
         return self.transform(inputs)
+
+
+    def load_state_dict(self, state_dict, strict=True, assign=False):
+        """Override load_state_dict to handle component loading.
+        
+        Parameters
+        ----------
+        state_dict : dict
+            Dictionary containing the state to load.
+        strict : bool, optional
+            Whether to strictly enforce that the keys in state_dict match
+            the keys returned by this module's state_dict() function.
+            By default, True.
+        assign : bool, optional
+            Whether to assign items in the state dictionary to their
+            corresponding keys in the module instead of copying them.
+            By default, False.
+        """
+        # Update all scalar attributes based on registered buffers being loaded
+        if 'components_' in state_dict and state_dict['components_'].numel() > 0:
+            self.n_components_ = state_dict['components_'].shape[0]
+            self.n_features_in_ = state_dict['components_'].shape[1]
+        
+        if 'mean_' in state_dict and state_dict['mean_'].numel() > 0:
+            self.n_samples_ = -1  # Unknown from loaded state
+        
+        # Resize buffers to match incoming state_dict shapes
+        for name in ['components_', 'explained_variance_', 'explained_variance_ratio_', 
+                     'mean_', 'noise_variance_', 'singular_values_']:
+            if name in state_dict:
+                # Get the buffer and resize it to match the state_dict shape
+                current_buffer = getattr(self, name)
+                self.register_buffer(name, torch.empty_like(state_dict[name]), persistent=True)
+        
+        return super().load_state_dict(state_dict, strict=strict, assign=assign)

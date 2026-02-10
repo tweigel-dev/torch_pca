@@ -12,13 +12,16 @@ def X() -> torch.Tensor:
 def test_pca_as_torch_module(tmp_path: Path, X: torch.Tensor) -> None:
     pca = PCA(n_components=5)
     com_before = pca.components_
+    assert not com_before.any(), "Components should be None before fitting."
+    assert com_before.shape == torch.Size([0]), "Components shape should be empty before fitting."
     X_reduced = pca.forward(X)
     comps_after = pca.components_.clone()
-    assert not com_before == comps_after, "The components should be updated after fitting the PCA model."
+    assert  comps_after.any(), "The components should be updated after fitting the PCA model."
     target_file = tmp_path/"pca.pt"
     torch.save(pca.state_dict(), target_file)
     loaded_pca_state = torch.load(target_file)
-    pca.load_state_dict(loaded_pca_state, strict=False)
+    pca = PCA(n_components=5)
+    pca.load_state_dict(loaded_pca_state,strict=False)
     assert torch.equal(pca.components_, comps_after), "The loaded components should match the saved components."
     forward_after_loading = pca.forward(X)
     assert torch.equal(forward_after_loading, X_reduced), "The output after loading state dict should match the output before loading."
